@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tank Battle</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        #gameContainer {
+            position: relative;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+            border-radius: 8px;
+            overflow: hidden;
+            background-color: #87CEEB;
+            /* Sky blue */
+        }
+
+        canvas {
+            display: block;
+        }
+
+        #uiLayer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .hud-container {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .player-hud,
+        .enemy-hud {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            /* Reduced gap */
+            background: rgba(0, 0, 0, 0.5);
+            padding: 6px 12px;
+            /* Reduced padding */
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .player-hud {
+            align-items: flex-start;
+        }
+
+        .enemy-hud {
+            align-items: flex-end;
+        }
+
+        .name {
+            font-size: 14px;
+            /* Smaller font and margin */
+            font-weight: bold;
+            margin-bottom: 2px;
+        }
+
+        .player-name {
+            color: #fff;
+        }
+
+        .enemy-name {
+            color: #ff5555;
+        }
+
+        .bar-container {
+            width: 150px;
+            /* Shorter bar */
+            height: 8px;
+            /* Thinner bar */
+            background: #222;
+            border-radius: 4px;
+            /* Smaller radius */
+            border: 1px solid #555;
+            /* Thinner border */
+            overflow: hidden;
+        }
+
+        .health-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #ff0000, #00ff00);
+            width: 100%;
+            transition: width 0.2s;
+        }
+
+        .power-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #00aaff, #ffff00, #ff0000);
+            width: 0%;
+        }
+
+        .fuel-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #ff8c00, #ffd700);
+            width: 100%;
+            transition: width 0.2s;
+        }
+
+        .label {
+            font-size: 10px;
+            /* Smaller label */
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #aaa;
+            margin-top: 2px;
+        }
+
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 40px;
+            border-radius: 12px;
+            text-align: center;
+            border: 2px solid white;
+            display: none;
+        }
+
+        #gameOver h1 {
+            margin: 0 0 20px 0;
+            font-size: 40px;
+        }
+
+        #restartBtn {
+            padding: 10px 20px;
+            font-size: 18px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            pointer-events: auto;
+            transition: background 0.2s;
+        }
+
+        #restartBtn:hover {
+            background: #45a049;
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.6);
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="1024" height="600"></canvas>
+        <div id="uiLayer">
+            <div class="hud-container">
+                <div class="player-hud">
+                    <div class="name player-name">Player (You) - <span id="playerScoreDisplay">0</span> Win(s)</div>
+                    <div class="label">Health</div>
+                    <div class="bar-container">
+                        <div id="playerHealth" class="health-bar"></div>
+                    </div>
+                    <div class="label">Fuel</div>
+                    <div class="bar-container">
+                        <div id="playerFuel" class="fuel-bar"></div>
+                    </div>
+                    <div class="label">Power (Hold Space)</div>
+                    <div class="bar-container">
+                        <div id="playerPower" class="power-bar"></div>
+                    </div>
+                </div>
+
+                <div class="wind-hud"
+                    style="text-align: center; background: rgba(0,0,0,0.5); padding: 5px 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); height: fit-content;">
+                    <div class="label" style="margin-top: 0;">Wind</div>
+                    <div class="name" id="windDisplay" style="color: #00ffff; font-size: 16px; margin: 0;">0 💨</div>
+                </div>
+
+                <div class="enemy-hud">
+                    <div class="name enemy-name"><span id="enemyName">CPU (Enemy)</span> - <span
+                            id="enemyScoreDisplay">0</span> Win(s)</div>
+                    <div class="label">Health</div>
+                    <div class="bar-container" style="transform: scaleX(-1);">
+                        <div id="enemyHealth" class="health-bar"></div>
+                    </div>
+                    <div class="label">Fuel</div>
+                    <div class="bar-container" style="transform: scaleX(-1);">
+                        <div id="enemyFuel" class="fuel-bar"></div>
+                    </div>
+                    <div class="label" id="enemyPowerLabel">Power</div>
+                    <div class="bar-container" style="transform: scaleX(-1);">
+                        <div id="enemyPower" class="power-bar"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="controls" id="controlsText">
+                <span>←/→ Move</span> &nbsp;|&nbsp;
+                <span>↑/↓ Aim Turret</span> &nbsp;|&nbsp;
+                <span>Space: Hold to power shot, release to fire</span>
+            </div>
+
+            <div id="gameOver">
+                <h1 id="winnerText">Player Wins!</h1>
+                <button id="restartBtn" onclick="game.init()">Play Again</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="main.js"></script>
+</body>
+
+</html>
