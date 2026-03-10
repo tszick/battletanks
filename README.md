@@ -1,4 +1,4 @@
-# Grass Bombers 2 (Tank Battle)
+# Tank Battle
 
 Egy böngészőből játszható, valós idejű, 2D tankos tüzérségi játék rombolható terepekkel, szél fizikával és őrült égből hulló meglepetésekkel! 
 
