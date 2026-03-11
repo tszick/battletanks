@@ -2,43 +2,43 @@
 
 ![Splash Screen](splashscreen.png)
 
-Egy böngészőből játszható, valós idejű, 2D tankos tüzérségi játék rombolható terepekkel, szél fizikával és őrült égből hulló meglepetésekkel! 
+A browser-based, real-time 2D tank artillery game with destructible terrain, wind physics, and crazy surprises falling from the sky!
 
-## Játékmenet
+## Gameplay
 
-A cél pofonegyszerű: elpusztítani az ellenséges tankot! Ehhez a domborzat adottságait, a szélirányt és az égből hulló bónuszokat is figyelembe kell venned.
+The goal is dead simple: destroy the enemy tank! To accomplish this, you'll need to factor in the terrain, wind direction, and bonuses dropping from the sky.
 
-- **Rombolható Terep:** Minden lövedék és bomba krátert üt a földbe. A pálya legalján azonban található egy elpusztíthatatlan alapkőzet, így a tankok nem tudnak kiesni a pályáról, hanem ezen a szilárd talajon tudnak tovább harcolni. Emellett a meredek kráterfalakon a tankok nem tudnak túljutni.
-- **Szél:** Minden kör elején egy új, véletlenszerű szélerősség és irány (Wind) generálódik. Ez a szél a kör során folyamatos vízszintes erőt fejt ki a repülő lövedékekre (eltéríti őket), illetve a lassan ereszkedő segélycsomagokra.
-- **Üzemanyag:** Minden tank üzemanyaga korlátozott (egy vízszintes sáv jelzi). Lőni és célozni kifogyott üzemanyaggal is lehet, de a tank utána már egy centit sem mozdul.
+- **Destructible Terrain:** Every projectile and bomb blows a crater in the ground. However, there is an indestructible bedrock layer at the very bottom of the map, preventing tanks from falling out of the arena. They can continue fighting from this solid ground. Tanks cannot climb steep crater walls.
+- **Wind:** At the start of every round, a new, random wind strength and direction (Wind) is generated. This wind exerts a continuous horizontal force on flying projectiles (deflecting them) and slowly descending care packages throughout the round.
+- **Fuel:** Every tank has limited fuel (indicated by a horizontal bar). You can still aim and shoot when out of fuel, but your tank won't be able to move an inch.
 
-## Repülők ✈️
+## Airplanes ✈️
 
-A csata hevében időről-időre repülők húznak át az égen! Ezek a gépek a pálya véletlenszerű pontján kioldják a rakományukat, ami két dolog lehet:
-1. **Bomba 💣:** Teljesen úgy viselkedik, mint egy kilőtt tank lövedék. Szörnyű pusztítást végez, krátert robbant és sebez bárkit a közelben. AI játékos ezelől menekülni fog.
-2. **Segélycsomag (Fehér doboz piros kereszttel) 🎁:** Ejtőernyőn ereszkedik alá (így jobban fújja a szél). Ha valaki (akár az AI, akár te) hozzáér, felveszi. Az AI minden eldobott munkát felfüggeszt és a csomagért rohan! Ha felveszi valaki az alábbi bónuszok egyikét kapja (véletlenszerűen):
-   - *Sebezhetetlenség (Pajzs):* Kék erőtér jelenik meg a tank körül 10-15 másodpercre. Sem a telitalálatok, sem a robbanások nem sebzik (viszont a "pályáról kizuhanás" ellen nem véd!).
-   - *Gépágyú mód:* 5 másodperc erejéig a tűzgomb nyomva tartásával sorozatot lehet lőni (mint egy géppuska), töltési idő és erőszabályzás nélkül!
+In the heat of battle, airplanes will periodically fly across the sky! These planes will drop their payload at a random point over the map, which can be one of two things:
+1. **Bomb 💣:** Behaves exactly like a fired tank projectile. It causes terrible destruction, blows a crater, and damages anyone nearby. The AI player will try to flee from it.
+2. **Care Package (White box with a red cross) 🎁:** Descends on a parachute (making it more susceptible to wind). If anyone (you or the AI) touches it, they pick it up. The AI will drop everything it's doing and rush for the package! Picking it up grants one of the following random bonuses:
+   - *Invulnerability (Shield):* A blue forcefield surrounds the tank for 10-15 seconds. Neither direct hits nor explosions will deal damage.
+   - *Machine Gun Mode:* For 5 seconds, you can fire a continuous stream of bullets (like a machine gun) by holding down the fire button, bypassing cooldowns and power charging!
 
-**TIPP:** A repülőket le is lehet lőni! Ha egy lövedék eltalálja őket, zuhanni kezdenek haladási irányuknak megfelelően, és a becsapódáskor hatalmas robbanást okoznak, ami ugyanúgy üt krátert és sebez, mint egy bomba. Ha egy repülő épp egy segélycsomagot szállít, azt a találat pillanatában azonnal kioldja!
+**TIP:** You can shoot down airplanes! If a projectile hits them, they will crash down in the direction they were flying. Upon impact, they cause a huge explosion that blows a crater and deals damage just like a bomb. If an airplane is carrying a care package, it will instantly drop it the moment it gets hit!
 
-## Játékmódok és Irányítás
+## Game Modes and Controls
 
-A játék alapértelmezetten **1 Játékos (Ember vs. AI)** módban indul. A gép (CPU) játékos próbál elmenekülni a bombázók elől és rohan a dobozokért miközben titeket vesz célba!
+The game starts in **1-Player (Human vs. AI)** mode by default. The CPU player will try to run away from bombers and rush for packages while targeting you!
 
-### 1. Játékos (Player 1 - Fekete Tank) Irányítás:
-- **`←` / `→` (Balra/Jobbra nyíl):** Tank mozgatása (amíg van üzemanyag)
-- **`↑` / `↓` (Fel/Le nyíl):** A lövegtorony dőlésszögének (célzás) állítása
-- **`Space` (Szóköz):** Lövés. **Tartsd nyomva**, hogy növeld a lövedék erejét, majd **engedd fel** a tüzeléshez!
+### Player 1 (Black Tank) Controls:
+- **`←` / `→` (Left/Right arrow):** Move tank (while fuel lasts)
+- **`↑` / `↓` (Up/Down arrow):** Adjust turret aiming angle
+- **`Space`:** Fire. **Hold down** to increase shot power, then **release** to fire!
 
 ---
 
-Mihelyst valaki megnyomja a **W, A, S, D** vagy az **Q** gombok valamelyikét a billentyűzeten, a játék megszakítja a gép vezérlését és azonnal átvált **2 Játékos módra (Lokális co-op)**! Ekkor a győzelmi számlálók lenullázódnak, és tiszta lappal mérkőzhettek meg egy gépen.
+As soon as anyone presses the **W, A, S, D**, or **Q** keys on the keyboard, the game overrides the CPU control and instantly switches to **2-Player (Local co-op)** mode! Win counters will reset, and you can battle it out on a clean slate.
 
-### 2. Játékos (Player 2 - Piros Tank) Irányítás:
-- **`A` / `D`:** Tank mozgatása
-- **`W` / `S`:** Célzás (Torony fel/le)
-- **`Q`:** Lövés. (Nyomva tart és felenged gyorsbillentyűként az egyes játékoshoz hasonlóan)
+### Player 2 (Red Tank) Controls:
+- **`A` / `D`:** Move tank
+- **`W` / `S`:** Aim (Turret up/down)
+- **`Q`:** Fire. (Hold and release hotkey, functioning similarly to Player 1's Spacebar)
 
-### Játék Vége (Újraindítás):
-Amikor egy kör véget ér, a "Play Again" gombra való kattintás mellett az **`Enter`** billentyű lenyomásával is azonnal elindítható az új kör.
+### Game Over (Restarting):
+When a round ends, in addition to clicking the "Play Again" button, you can immediately start a new round by pressing the **`Enter`** key.
