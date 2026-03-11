@@ -1,4 +1,4 @@
-# Grass Bombers 2 (Tank Battle)
+# Battletanks
 
 ![Splash Screen](splashscreen.png)
 
