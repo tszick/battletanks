@@ -90,7 +90,15 @@ class Game {
         this.sounds = new SoundManager();
 
         // Bind events
-        window.addEventListener('keydown', (e) => this.keys[e.code] = true);
+        window.addEventListener('keydown', (e) => {
+            if (!this.isRunning && document.getElementById('gameOver').style.display === 'block') {
+                if (e.code === 'Enter') {
+                    this.init();
+                    return;
+                }
+            }
+            this.keys[e.code] = true;
+        });
         window.addEventListener('keyup', (e) => this.keys[e.code] = false);
 
         // Bind requestAnimationFrame context
@@ -119,13 +127,15 @@ class Game {
         this.airplaneTimer = Math.random() * 2.5 + 1.5; // 1.5 to 4 seconds
         this.wind = (Math.random() - 0.5) * 300; // Wind strength between -150 and 150
 
+        this.isEnding = false;
+        this.endingTimer = 0;
+
         this.isRunning = true;
         this.lastTime = performance.now();
         requestAnimationFrame(this.loop);
 
         document.getElementById('enemyName').innerText = 'CPU (Enemy)';
         document.getElementById('enemyPowerLabel').innerText = 'Power';
-        document.getElementById('controlsText').innerHTML = '<span>←/→ Move</span> &nbsp;|&nbsp; <span>↑/↓ Aim Turret</span> &nbsp;|&nbsp; <span>Space: Hold to power shot</span>';
 
         this.updateUI();
     }
@@ -143,6 +153,30 @@ class Game {
     }
 
     update(dt) {
+        if (this.isEnding) {
+            this.endingTimer -= dt;
+
+            // Spawn random explosions on dead tanks during ending
+            this.tanks.forEach(tank => {
+                if (tank.health <= 0 && Math.random() < 0.1) {
+                    this.createExplosion(tank.x + (Math.random() - 0.5) * 40, tank.y - 10 + (Math.random() - 0.5) * 40, true);
+                }
+            });
+
+            // Explosions continue to animate
+            for (let i = this.explosions.length - 1; i >= 0; i--) {
+                this.explosions[i].update(dt);
+                if (this.explosions[i].isDead) {
+                    this.explosions.splice(i, 1);
+                }
+            }
+
+            if (this.endingTimer <= 0) {
+                this.isRunning = false; // Stop game loop completely
+            }
+            return;
+        }
+
         // Player Input
         if (this.keys['ArrowLeft']) this.player.move(-1, dt, this.terrain);
         if (this.keys['ArrowRight']) this.player.move(1, dt, this.terrain);
@@ -203,7 +237,7 @@ class Game {
         for (let i = this.airplanes.length - 1; i >= 0; i--) {
             const plane = this.airplanes[i];
             plane.update(dt, this);
-            if (plane.isOffScreen(this.width)) {
+            if (plane.readyToRemove || plane.isOffScreen(this.width)) {
                 this.airplanes.splice(i, 1);
             }
         }
@@ -242,6 +276,24 @@ class Game {
                 this.projectiles.splice(i, 1);
                 continue;
             }
+
+            // Check collision with airplanes
+            let hitAirplane = false;
+            for (let j = this.airplanes.length - 1; j >= 0; j--) {
+                const plane = this.airplanes[j];
+                // Don't collide with own bomb immediately
+                if (p.owner === plane && p.lifeTime < 0.5) continue;
+
+                if (!plane.isDead && Math.hypot(p.x - plane.x, p.y - plane.y) < 30) {
+                    plane.takeDamage(this);
+                    this.createExplosion(p.x, p.y);
+                    this.projectiles.splice(i, 1);
+                    hitAirplane = true;
+                    break;
+                }
+            }
+            if (hitAirplane) continue;
+
             // Bounds check
             if (p.x < 0 || p.x > this.width || p.y > this.height) {
                 this.projectiles.splice(i, 1);
@@ -282,9 +334,9 @@ class Game {
         }
     }
 
-    createExplosion(x, y) {
+    createExplosion(x, y, isSmall = false) {
         this.sounds.explosion();
-        const radius = 50;
+        const radius = isSmall ? 25 : 50;
         this.explosions.push(new Explosion(x, y, radius));
         this.terrain.destroyCircle(x, y, radius);
 
@@ -293,13 +345,12 @@ class Game {
             const dist = Math.hypot(tank.x - x, (tank.y - 10) - y); // approx tank center
 
             if (dist < radius) {
-                // If fully inside (assuming tank is small enough), instant 100% damage
-                // But realistically, we can check if dist is small enough
+                // Maximum 25 damage on a direct hit
                 if (dist < radius * 0.5) {
-                    tank.takeDamage(100);
+                    tank.takeDamage(25);
                 } else {
                     // Scale damage: edge of explosion = minor damage, closer = more
-                    const damage = 100 * (1 - (dist / radius));
+                    const damage = 25 * (1 - (dist / radius));
                     tank.takeDamage(damage);
                 }
             }
@@ -340,35 +391,43 @@ class Game {
         if (this.isTwoPlayerMode) {
             document.getElementById('enemyName').innerText = 'Player 2 (Red)';
             document.getElementById('enemyPowerLabel').innerText = 'Power (Hold Q)';
-            document.getElementById('controlsText').innerHTML = '<span>P1 (Black): ←/→ Move, ↑/↓ Aim, Space Fire</span><br><span>P2 (Red): A/D Move, W/S Aim, Q Fire</span>';
         }
     }
 
     checkWinCondition() {
-        if (this.player.health <= 0 || this.enemy.health <= 0) {
-            if (!this.isRunning) return;
-            this.isRunning = false;
-            const gameOverDiv = document.getElementById('gameOver');
-            const winnerText = document.getElementById('winnerText');
+        if (!this.isEnding && (this.player.health <= 0 || this.enemy.health <= 0)) {
+            this.isEnding = true;
+            this.endingTimer = 3.0; // 3 seconds of explosions
 
-            gameOverDiv.style.display = 'block';
-            if (this.player.health <= 0 && this.enemy.health <= 0) {
-                winnerText.innerText = "Draw!";
-                winnerText.style.color = 'white';
-                this.sounds.defeat();
-            } else if (this.enemy.health <= 0) {
-                winnerText.innerText = "Player 1 Wins!";
-                winnerText.style.color = '#4CAF50';
-                this.playerScore++;
-                this.sounds.victory();
-            } else {
-                winnerText.innerText = this.isTwoPlayerMode ? "Player 2 Wins!" : "CPU Wins!";
-                winnerText.style.color = '#ff5555';
-                this.enemyScore++;
-                this.sounds.defeat();
-            }
-            this.updateUI(); // Final score update
+            // Big initial explosion on the loser
+            if (this.player.health <= 0) this.createExplosion(this.player.x, this.player.y);
+            if (this.enemy.health <= 0) this.createExplosion(this.enemy.x, this.enemy.y);
+
+            this.showGameOverScreen(); // Show immediately!
         }
+    }
+
+    showGameOverScreen() {
+        const gameOverDiv = document.getElementById('gameOver');
+        const winnerText = document.getElementById('winnerText');
+
+        gameOverDiv.style.display = 'block';
+        if (this.player.health <= 0 && this.enemy.health <= 0) {
+            winnerText.innerText = "Draw!";
+            winnerText.style.color = 'white';
+            this.sounds.defeat();
+        } else if (this.enemy.health <= 0) {
+            winnerText.innerText = "Player 1 Wins!";
+            winnerText.style.color = '#4CAF50';
+            this.playerScore++;
+            this.sounds.victory();
+        } else {
+            winnerText.innerText = this.isTwoPlayerMode ? "Player 2 Wins!" : "CPU Wins!";
+            winnerText.style.color = '#ff5555';
+            this.enemyScore++;
+            this.sounds.defeat();
+        }
+        this.updateUI(); // Final score update
     }
 
     draw() {
@@ -442,8 +501,10 @@ class Terrain {
             const bottomArcY = cy + dy;
 
             // If the chunk of circle is below the current terrain height, we lower the terrain
+            // Prevent digging below a bedrock layer (e.g. 20 pixels from bottom)
+            const bedrockY = this.height - 20;
             if (this.heights[x] < bottomArcY) {
-                this.heights[x] = bottomArcY; // Push the ground down
+                this.heights[x] = Math.min(bottomArcY, bedrockY); // Push the ground down, but not past bedrock
             }
         }
     }
@@ -567,28 +628,26 @@ class Tank {
             this.vy += this.gravity * dt;
             this.y += this.vy * dt;
 
-            // Hit ground (only if the ground is intact, otherwise keep falling)
-            if (this.y > groundY && groundY < terrain.height - 5) {
+            // Hit ground (now there is a bedrock, so we just snap to ground)
+            if (this.y > groundY) {
                 this.y = groundY;
                 this.vy = 0;
             }
-        } else if (groundY < terrain.height - 5) {
+        } else {
             // Slope follow up (snap to ground if walking up a hill)
             this.y = groundY;
             this.vy = 0;
-        }
-
-        // Check if tank fell into the abyss
-        if (this.y > terrain.height + this.height) {
-            this.invulnerableTime = 0; // Shield doesn't save you from the abyss
-            this.takeDamage(100);
         }
     }
 
     takeDamage(amount) {
         if (this.invulnerableTime > 0) return; // Shield protects damage!
         this.health -= amount;
-        if (this.health < 0) this.health = 0;
+        if (this.health <= 0) {
+            this.health = 0;
+            this.power = 0; 
+            this.isCharging = false;
+        }
     }
 
     draw(ctx) {
@@ -654,16 +713,19 @@ class Tank {
 // Projectile
 // -------------------------------------------------------------
 class Projectile {
-    constructor(x, y, vx, vy) {
+    constructor(x, y, vx, vy, owner = null) {
         this.x = x;
         this.y = y;
         this.vx = vx;
         this.vy = vy;
+        this.owner = owner;
+        this.lifeTime = 0;
         this.gravity = 500;
         this.active = true;
     }
 
     update(dt, wind) {
+        this.lifeTime += dt;
         this.vy += this.gravity * dt;
         this.vx += wind * dt; // Apply wind acceleration
         this.x += this.vx * dt;
@@ -778,7 +840,7 @@ class AI {
 
     update(dt, game) {
         // Very rudimentary AI
-        if (this.tank.health <= 0 || game.player.health <= 0) return;
+        if (this.tank.health <= 0 || game.player.health <= 0 || game.isEnding) return;
 
         this.stateTimer -= dt;
         this.movingTimer -= dt;
@@ -825,16 +887,6 @@ class AI {
 
         // Handle movement separately from shooting
         if (isEmergencyMoving || this.movingTimer > 0) {
-            // Check if moving into a pit
-            const lookAheadX = this.tank.x + this.moveDir * 40;
-            if (lookAheadX > 0 && lookAheadX < game.width) {
-                const upcomingY = this.terrain.getHeight(lookAheadX);
-                if (upcomingY >= this.terrain.height - 5) {
-                    this.moveDir *= -1; // Turn around
-                    this.movingTimer = 0.5; // Force moving away
-                }
-            }
-
             let successfullyMoved = this.tank.move(this.moveDir, dt, this.terrain);
             if (!successfullyMoved && !isEmergencyMoving) {
                 // If it hits a steep wall while wandering, turn around
@@ -911,9 +963,37 @@ class Airplane {
         this.flightFrequency = 1.5 + Math.random() * 2;
         this.flightAmplitude = 10 + Math.random() * 10;
         this.timeAlive = 0;
+
+        this.isDead = false;
+        this.crashVy = 0;
+        this.readyToRemove = false;
+    }
+
+    takeDamage(game) {
+        if (this.isDead) return;
+        this.isDead = true;
+        // If it hasn't dropped payload yet, drop the carepackage immediately
+        if (!this.hasDropped && this.payloadType === 'package') {
+            this.hasDropped = true;
+            game.sounds.playTone(400, 'sine', 0.5, 0.1, 300);
+            game.carePackages.push(new CarePackage(this.x, this.y));
+        }
     }
 
     update(dt, game) {
+        if (this.isDead) {
+            this.x += this.vx * dt;
+            this.crashVy += 500 * dt; // gravity
+            this.y += this.crashVy * dt;
+
+            const groundY = game.terrain.getHeight(this.x);
+            if (this.y >= groundY) {
+                game.createExplosion(this.x, this.y);
+                this.readyToRemove = true;
+            }
+            return;
+        }
+
         let prevX = this.x;
         this.x += this.vx * dt;
 
@@ -930,7 +1010,7 @@ class Airplane {
                 this.hasDropped = true;
                 if (this.payloadType === 'bomb') {
                     game.sounds.bombDrop();
-                    game.projectiles.push(new Projectile(this.x, this.y, 0, 0));
+                    game.projectiles.push(new Projectile(this.x, this.y, 0, 0, this));
                 } else {
                     game.sounds.playTone(400, 'sine', 0.5, 0.1, 300);
                     game.carePackages.push(new CarePackage(this.x, this.y));
@@ -947,6 +1027,11 @@ class Airplane {
     draw(ctx) {
         ctx.save();
         ctx.translate(this.x, this.y);
+
+        if (this.isDead) {
+            ctx.rotate((this.direction === 1 ? 1 : -1) * this.crashVy * 0.005);
+        }
+
         if (this.direction === -1) {
             ctx.scale(-1, 1);
         }

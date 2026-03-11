@@ -1,4 +1,6 @@
-# Battletanks
+# Grass Bombers 2 (Tank Battle)
+
+![Splash Screen](splashscreen.png)
 
 Egy böngészőből játszható, valós idejű, 2D tankos tüzérségi játék rombolható terepekkel, szél fizikával és őrült égből hulló meglepetésekkel! 
 
@@ -6,7 +8,7 @@ Egy böngészőből játszható, valós idejű, 2D tankos tüzérségi játék r
 
 A cél pofonegyszerű: elpusztítani az ellenséges tankot! Ehhez a domborzat adottságait, a szélirányt és az égből hulló bónuszokat is figyelembe kell venned.
 
-- **Rombolható Terep:** Minden lövedék és bomba krátert üt a földbe. Ha a talajt teljesen kirobbantod valaki alól, az kizuhan a pályáról és azonnal veszít! Emellett a meredek kráterfalakon a tankok nem tudnak túljutni.
+- **Rombolható Terep:** Minden lövedék és bomba krátert üt a földbe. A pálya legalján azonban található egy elpusztíthatatlan alapkőzet, így a tankok nem tudnak kiesni a pályáról, hanem ezen a szilárd talajon tudnak tovább harcolni. Emellett a meredek kráterfalakon a tankok nem tudnak túljutni.
 - **Szél:** Minden kör elején egy új, véletlenszerű szélerősség és irány (Wind) generálódik. Ez a szél a kör során folyamatos vízszintes erőt fejt ki a repülő lövedékekre (eltéríti őket), illetve a lassan ereszkedő segélycsomagokra.
 - **Üzemanyag:** Minden tank üzemanyaga korlátozott (egy vízszintes sáv jelzi). Lőni és célozni kifogyott üzemanyaggal is lehet, de a tank utána már egy centit sem mozdul.
 
@@ -17,6 +19,8 @@ A csata hevében időről-időre repülők húznak át az égen! Ezek a gépek a
 2. **Segélycsomag (Fehér doboz piros kereszttel) 🎁:** Ejtőernyőn ereszkedik alá (így jobban fújja a szél). Ha valaki (akár az AI, akár te) hozzáér, felveszi. Az AI minden eldobott munkát felfüggeszt és a csomagért rohan! Ha felveszi valaki az alábbi bónuszok egyikét kapja (véletlenszerűen):
    - *Sebezhetetlenség (Pajzs):* Kék erőtér jelenik meg a tank körül 10-15 másodpercre. Sem a telitalálatok, sem a robbanások nem sebzik (viszont a "pályáról kizuhanás" ellen nem véd!).
    - *Gépágyú mód:* 5 másodperc erejéig a tűzgomb nyomva tartásával sorozatot lehet lőni (mint egy géppuska), töltési idő és erőszabályzás nélkül!
+
+**TIPP:** A repülőket le is lehet lőni! Ha egy lövedék eltalálja őket, zuhanni kezdenek haladási irányuknak megfelelően, és a becsapódáskor hatalmas robbanást okoznak, ami ugyanúgy üt krátert és sebez, mint egy bomba. Ha egy repülő épp egy segélycsomagot szállít, azt a találat pillanatában azonnal kioldja!
 
 ## Játékmódok és Irányítás
 
@@ -35,3 +39,6 @@ Mihelyst valaki megnyomja a **W, A, S, D** vagy az **Q** gombok valamelyikét a 
 - **`A` / `D`:** Tank mozgatása
 - **`W` / `S`:** Célzás (Torony fel/le)
 - **`Q`:** Lövés. (Nyomva tart és felenged gyorsbillentyűként az egyes játékoshoz hasonlóan)
+
+### Játék Vége (Újraindítás):
+Amikor egy kör véget ér, a "Play Again" gombra való kattintás mellett az **`Enter`** billentyű lenyomásával is azonnal elindítható az új kör.
