@@ -1199,7 +1199,7 @@ class Airplane {
         if (this.isDead) return;
         this.isDead = true;
         // If it hasn't dropped payload yet, drop the carepackage immediately
-        if (!this.hasDropped && (this.payloadType === 'package' || this.payloadType === 'fuel')) {
+        if (!this.hasDropped && (this.payloadType === 'package' || this.payloadType === 'fuel' || this.payloadType === 'toolbox')) {
             this.hasDropped = true;
             game.sounds.playTone(400, 'sine', 0.5, 0.1, 300);
             game.carePackages.push(new CarePackage(this.x, this.y, this.payloadType));
