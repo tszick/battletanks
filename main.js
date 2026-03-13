@@ -346,6 +346,8 @@ class Game {
                     this.sounds.playTone(800, 'square', 0.2, 0.1, 1200); // Collect sound
                     if (cp.type === 'fuel') {
                         tank.fuel = Math.min(tank.maxFuel, tank.fuel + tank.maxFuel * 0.2);
+                    } else if (cp.type === 'toolbox') {
+                        tank.health = Math.min(100, tank.health + 10); // Heal 10% of 100 max health
                     } else {
                         if (Math.random() < 0.5) {
                             tank.invulnerableTime = 10 + Math.random() * 5; // 10-15s
@@ -1176,10 +1178,11 @@ class Airplane {
         this.dropX = 50 + Math.random() * (gameWidth - 100); // Random X to drop payload
         this.hasDropped = false;
         const rand = Math.random();
-        if (rand < 0.25) this.payloadType = 'bomb';
-        else if (rand < 0.5) this.payloadType = 'mine';
-        else if (rand < 0.75) this.payloadType = 'package';
-        else this.payloadType = 'fuel';
+        if (rand < 0.20) this.payloadType = 'bomb';
+        else if (rand < 0.40) this.payloadType = 'mine';
+        else if (rand < 0.60) this.payloadType = 'package';
+        else if (rand < 0.80) this.payloadType = 'fuel';
+        else this.payloadType = 'toolbox';
 
         // Flight path variation
         this.flightPhase = Math.random() * Math.PI * 2;
@@ -1259,7 +1262,7 @@ class Airplane {
         }
 
         // Sprite airplane or helicopter based on payload
-        const isHelicopter = (this.payloadType === 'package' || this.payloadType === 'fuel');
+        const isHelicopter = (this.payloadType === 'package' || this.payloadType === 'fuel' || this.payloadType === 'toolbox');
         const spriteKey = isHelicopter ? 'yellow_helicopter' : 'gray_airplane';
         const sprite = AssetManager.sprites[spriteKey];
 
@@ -1334,6 +1337,14 @@ class Airplane {
                 ctx.fillStyle = 'black';
                 ctx.font = '8px Arial';
                 ctx.fillText('F', -3, 12);
+            } else if (this.payloadType === 'toolbox') {
+                ctx.fillStyle = '#cc0000'; // red toolbox
+                ctx.fillRect(-5, 6, 10, 6);
+                // handle
+                ctx.fillStyle = '#333';
+                ctx.fillRect(-3, 4, 6, 2);
+                ctx.fillStyle = '#cc0000';
+                ctx.fillRect(-2, 5, 4, 1);
             }
         }
 
@@ -1404,6 +1415,20 @@ class CarePackage {
             ctx.fillStyle = 'black';
             ctx.font = '10px Arial';
             ctx.fillText('F', -3, 4);
+        } else if (this.type === 'toolbox') {
+            // Draw a red toolbox
+            ctx.fillStyle = '#cc0000'; // Red toolbox body
+            ctx.fillRect(-7, -2, 14, 8);
+            
+            // Draw handle
+            ctx.fillStyle = '#333'; // Dark handle
+            ctx.fillRect(-4, -5, 8, 3);
+            ctx.fillStyle = '#cc0000'; // cut out inside of handle (background trick)
+            ctx.fillRect(-2, -4, 4, 2);
+
+            // Draw latch / detail
+            ctx.fillStyle = '#ccc'; // silver latch
+            ctx.fillRect(-2, 0, 4, 2);
         }
 
         ctx.restore();

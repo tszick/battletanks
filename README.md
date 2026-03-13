@@ -19,13 +19,14 @@ In the heat of battle, aircraft will periodically fly across the sky and drop pa
 1. **Bombers (Gray Airplanes):** These drop weapons like bombs or landmines.
 2. **Helicopters (Yellow):** These fly in to deliver helpful supplies like care packages or fuel.
 
-The payloads can be one of four things:
+The payloads can be one of five things:
 1. **Bomb 💣:** Behaves exactly like a fired tank projectile. It causes terrible destruction, blows a crater, and damages anyone nearby. The AI player will try to flee from it.
 2. **Landmine 🔴:** A small explosive that lands on the ground without exploding immediately. It blinks with a red light and waits. If any tank drives too close to it, it explodes, dealing half the damage of a direct hit but with a smaller 40% explosion radius.
 3. **Care Package 🎁:** Descends on a parachute (making it more susceptible to wind). If anyone (you or the AI) touches it, they pick it up. The AI will drop everything it's doing and rush for the package! Picking it up grants one of the following random bonuses:
    - *Shield:* A glowing purple aura surrounds the tank for 15 seconds. Incoming damage is reduced by 50% initially, but this protection scales down to 0% as the 15 seconds run out.
    - *Machine Gun Mode:* For 5 seconds, you can fire a continuous stream of bullets (like a machine gun) by holding down the fire button, bypassing cooldowns and power charging!
 4. **Fuel Drop ⛽:** Instantly restores 20% of your maximum fuel capacity.
+5. **Toolbox 🧰:** Restores 10% of your maximum health.
 
 **TIP:** You can shoot down aircraft! If a projectile hits them, they will crash down in the direction they were flying. Upon impact, they cause a huge explosion that blows a crater and deals damage just like a bomb. If they are carrying a support package, they will instantly drop it the moment they get hit!
 
