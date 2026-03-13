@@ -252,10 +252,14 @@ class Game {
                 if (dist < 30 && !cp.collected) {
                     cp.collected = true;
                     this.sounds.playTone(800, 'square', 0.2, 0.1, 1200); // Collect sound
-                    if (Math.random() < 0.5) {
-                        tank.invulnerableTime = 10 + Math.random() * 5; // 10-15s
+                    if (cp.type === 'fuel') {
+                        tank.fuel = Math.min(tank.maxFuel, tank.fuel + tank.maxFuel * 0.2);
                     } else {
-                        tank.machineGunTime = 5; // 5s
+                        if (Math.random() < 0.5) {
+                            tank.invulnerableTime = 10 + Math.random() * 5; // 10-15s
+                        } else {
+                            tank.machineGunTime = 5; // 5s
+                        }
                     }
                 }
             });
@@ -956,7 +960,10 @@ class Airplane {
         this.vx = this.direction * (120 + Math.random() * 60); // Speed
         this.dropX = 50 + Math.random() * (gameWidth - 100); // Random X to drop payload
         this.hasDropped = false;
-        this.payloadType = Math.random() < 0.5 ? 'bomb' : 'package';
+        const rand = Math.random();
+        if (rand < 0.33) this.payloadType = 'bomb';
+        else if (rand < 0.66) this.payloadType = 'package';
+        else this.payloadType = 'fuel';
 
         // Flight path variation
         this.flightPhase = Math.random() * Math.PI * 2;
@@ -973,10 +980,10 @@ class Airplane {
         if (this.isDead) return;
         this.isDead = true;
         // If it hasn't dropped payload yet, drop the carepackage immediately
-        if (!this.hasDropped && this.payloadType === 'package') {
+        if (!this.hasDropped && (this.payloadType === 'package' || this.payloadType === 'fuel')) {
             this.hasDropped = true;
             game.sounds.playTone(400, 'sine', 0.5, 0.1, 300);
-            game.carePackages.push(new CarePackage(this.x, this.y));
+            game.carePackages.push(new CarePackage(this.x, this.y, this.payloadType));
         }
     }
 
@@ -1013,7 +1020,7 @@ class Airplane {
                     game.projectiles.push(new Projectile(this.x, this.y, 0, 0, this));
                 } else {
                     game.sounds.playTone(400, 'sine', 0.5, 0.1, 300);
-                    game.carePackages.push(new CarePackage(this.x, this.y));
+                    game.carePackages.push(new CarePackage(this.x, this.y, this.payloadType));
                 }
             }
         }
@@ -1073,12 +1080,18 @@ class Airplane {
                 ctx.beginPath();
                 ctx.ellipse(0, 8, 5, 3, 0, 0, Math.PI * 2);
                 ctx.fill();
-            } else {
+            } else if (this.payloadType === 'package') {
                 ctx.fillStyle = 'white';
                 ctx.fillRect(-5, 4, 10, 10);
                 ctx.fillStyle = 'red';
                 ctx.fillRect(-1, 5, 2, 8);
                 ctx.fillRect(-4, 8, 8, 2);
+            } else if (this.payloadType === 'fuel') {
+                ctx.fillStyle = 'orange';
+                ctx.fillRect(-5, 4, 10, 10);
+                ctx.fillStyle = 'black';
+                ctx.font = '8px Arial';
+                ctx.fillText('F', -3, 12);
             }
         }
 
@@ -1090,12 +1103,13 @@ class Airplane {
 // Care Package
 // -------------------------------------------------------------
 class CarePackage {
-    constructor(x, y) {
+    constructor(x, y, type = 'package') {
         this.x = x;
         this.y = y;
         this.vy = 0;
         this.gravity = 150; // Slower fall simulating a parachute
         this.collected = false;
+        this.type = type;
     }
 
     update(dt, terrain, wind) {
@@ -1133,14 +1147,22 @@ class CarePackage {
             ctx.stroke();
         }
 
-        // Draw Box
-        ctx.fillStyle = 'white';
-        ctx.fillRect(-6, -6, 12, 12);
+        if (this.type === 'package') {
+            // Draw Box
+            ctx.fillStyle = 'white';
+            ctx.fillRect(-6, -6, 12, 12);
 
-        // Draw Cross
-        ctx.fillStyle = 'red';
-        ctx.fillRect(-2, -4, 4, 8);
-        ctx.fillRect(-4, -2, 8, 4);
+            // Draw Cross
+            ctx.fillStyle = 'red';
+            ctx.fillRect(-2, -4, 4, 8);
+            ctx.fillRect(-4, -2, 8, 4);
+        } else if (this.type === 'fuel') {
+            ctx.fillStyle = 'orange';
+            ctx.fillRect(-6, -6, 12, 12);
+            ctx.fillStyle = 'black';
+            ctx.font = '10px Arial';
+            ctx.fillText('F', -3, 4);
+        }
 
         ctx.restore();
     }
