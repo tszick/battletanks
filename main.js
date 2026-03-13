@@ -172,11 +172,12 @@ class Game {
         document.getElementById('gameOver').style.display = 'none';
 
         // Select Random Theme
-        const themes = ['day', 'desert', 'night'];
+        const themes = ['day', 'desert', 'night', 'snow'];
         this.currentTheme = themes[Math.floor(Math.random() * themes.length)];
 
-        // Generate stars for night theme
+        // Generate stars for night theme, or snowflakes for snow theme
         this.stars = [];
+        this.snowflakes = [];
         if (this.currentTheme === 'night') {
             for (let i = 0; i < 100; i++) {
                 this.stars.push({
@@ -184,6 +185,16 @@ class Game {
                     y: Math.random() * this.height * 0.8, // Most stars in the upper 80%
                     size: Math.random() * 2 + 0.5,
                     alpha: Math.random()
+                });
+            }
+        } else if (this.currentTheme === 'snow') {
+            for (let i = 0; i < 200; i++) {
+                this.snowflakes.push({
+                    x: Math.random() * this.width,
+                    y: Math.random() * this.height,
+                    size: Math.random() * 2.5 + 1.0,
+                    speed: Math.random() * 50 + 20, // vertical fall speed
+                    swayPhase: Math.random() * Math.PI * 2
                 });
             }
         }
@@ -385,6 +396,22 @@ class Game {
             }
         }
 
+        // Update Snowflakes
+        if (this.currentTheme === 'snow') {
+            this.snowflakes.forEach(flake => {
+                flake.y += flake.speed * dt;
+                flake.x += (Math.sin(flake.swayPhase + flake.y / 50) * 20 + this.wind * 0.5) * dt;
+
+                // Loop around when hitting bottom or going mostly offscreen horizontally
+                if (flake.y > this.height) {
+                    flake.y = -10;
+                    flake.x = Math.random() * this.width;
+                }
+                if (flake.x > this.width + 20) flake.x = -10;
+                else if (flake.x < -20) flake.x = this.width + 10;
+            });
+        }
+
         // Mines (Taposóakna)
         for (let i = this.mines.length - 1; i >= 0; i--) {
             const mine = this.mines[i];
@@ -575,6 +602,19 @@ class Game {
                 this.ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
                 this.ctx.fill();
             });
+        } else if (this.currentTheme === 'snow') {
+            skyGradient.addColorStop(0, '#A9B0B3'); // Light gray sky at top
+            skyGradient.addColorStop(1, '#DCE3E6'); // Very light blue/gray at bottom
+            this.ctx.fillStyle = skyGradient;
+            this.ctx.fillRect(0, 0, this.width, this.height);
+
+            // Draw snowflakes
+            this.snowflakes.forEach(flake => {
+                this.ctx.fillStyle = `rgba(255, 255, 255, 0.8)`;
+                this.ctx.beginPath();
+                this.ctx.arc(flake.x, flake.y, flake.size, 0, Math.PI * 2);
+                this.ctx.fill();
+            });
         }
 
         // Draw Terrain
@@ -662,6 +702,9 @@ class Terrain {
         } else if (this.theme === 'night') {
             fillColor = '#444444'; // Gray rocky ground
             strokeColor = '#222222'; // Dark rocky shadow
+        } else if (this.theme === 'snow') {
+            fillColor = '#F2F6F8'; // Dirty white / snow
+            strokeColor = '#C4D1D6'; // Light gray shadow
         }
 
         ctx.fillStyle = fillColor; 

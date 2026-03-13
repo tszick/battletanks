@@ -8,7 +8,7 @@ A browser-based, real-time 2D tank artillery game with destructible terrain, win
 
 The goal is dead simple: destroy the enemy tank! To accomplish this, you'll need to factor in the terrain, wind direction, and bonuses dropping from the sky.
 
-- **Random Themes:** Every round takes place in one of three environments: Day (green grass, blue sky), Desert (sandy dunes, warm sky), or Night (rocky ground, starry sky).
+- **Random Themes:** Every round takes place in one of four environments: Day (green grass, blue sky), Desert (sandy dunes, warm sky), Night (rocky ground, starry sky), or Snow (dirty white ground, falling snow).
 - **Destructible Terrain:** Every projectile and bomb blows a crater in the ground. However, there is an indestructible bedrock layer at the very bottom of the map, preventing tanks from falling out of the arena. They can continue fighting from this solid ground. Tanks cannot climb steep crater walls.
 - **Wind:** At the start of every round, a new, random wind strength and direction (Wind) is generated. This wind exerts a continuous horizontal force on flying projectiles (deflecting them) and slowly descending care packages throughout the round.
 - **Fuel:** Every tank has limited fuel (indicated by a horizontal bar). You can still aim and shoot when out of fuel, but your tank won't be able to move an inch.
