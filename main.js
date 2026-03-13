@@ -59,6 +59,69 @@ class SoundManager {
     }
 }
 
+// -------------------------------------------------------------
+// Assets & Image Processing
+// -------------------------------------------------------------
+class AssetManager {
+    static sprites = {};
+    
+    static async loadAndProcessImage(name, path) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            // Removed crossOrigin="Anonymous" to avoid issues with local file:// protocol
+            img.onload = () => {
+                try {
+                    // Background removal (make white transparent)
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    
+                    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const data = imgData.data;
+                    for (let i = 0; i < data.length; i += 4) {
+                        const r = data[i];
+                        const g = data[i + 1];
+                        const b = data[i + 2];
+                        // If pixel is near white (#ffffff), make fully transparent
+                        if (r > 240 && g > 240 && b > 240) {
+                            data[i + 3] = 0; // Alpha = 0
+                        }
+                    }
+                    ctx.putImageData(imgData, 0, 0);
+                    
+                    const processedImg = new Image();
+                    processedImg.src = canvas.toDataURL();
+                    processedImg.onload = () => {
+                        AssetManager.sprites[name] = processedImg;
+                        resolve();
+                    };
+                } catch (err) {
+                    console.warn("Could not process transparency (likely running via file:// without a web server). Using original image.", err);
+                    AssetManager.sprites[name] = img;
+                    resolve();
+                }
+            };
+            img.onerror = () => {
+                console.error("Failed to load image: " + path);
+                resolve(); // Resolve anyway so Game continues to load procedural fallbacks
+            };
+            img.src = path;
+        });
+    }
+    
+    static async loadAll() {
+        await Promise.all([
+            AssetManager.loadAndProcessImage('gray_tank', './assets/gray_tank.png'),
+            AssetManager.loadAndProcessImage('red_tank', './assets/red_tank.png'),
+            AssetManager.loadAndProcessImage('gray_airplane', './assets/gray_airplane.png'),
+            AssetManager.loadAndProcessImage('yellow_helicopter', './assets/yellow_helicopter.png')
+        ]);
+        console.log("All assets loaded and processed.");
+    }
+}
+
 class Game {
     constructor() {
         this.canvas = document.getElementById('gameCanvas');
@@ -108,11 +171,28 @@ class Game {
     init() {
         document.getElementById('gameOver').style.display = 'none';
 
-        this.terrain = new Terrain(this.width, this.height);
+        // Select Random Theme
+        const themes = ['day', 'desert', 'night'];
+        this.currentTheme = themes[Math.floor(Math.random() * themes.length)];
+
+        // Generate stars for night theme
+        this.stars = [];
+        if (this.currentTheme === 'night') {
+            for (let i = 0; i < 100; i++) {
+                this.stars.push({
+                    x: Math.random() * this.width,
+                    y: Math.random() * this.height * 0.8, // Most stars in the upper 80%
+                    size: Math.random() * 2 + 0.5,
+                    alpha: Math.random()
+                });
+            }
+        }
+
+        this.terrain = new Terrain(this.width, this.height, this.currentTheme);
 
         // Setup Player
         const playerX = 150;
-        this.player = new Tank(playerX, this.terrain.getHeight(playerX), 'black', true);
+        this.player = new Tank(playerX, this.terrain.getHeight(playerX), '#dddddd', true);
 
         // Setup Enemy
         const enemyX = this.width - 150;
@@ -123,6 +203,7 @@ class Game {
         this.projectiles = [];
         this.explosions = [];
         this.carePackages = [];
+        this.mines = [];
         this.airplanes = [];
         this.airplaneTimer = Math.random() * 2.5 + 1.5; // 1.5 to 4 seconds
         this.wind = (Math.random() - 0.5) * 300; // Wind strength between -150 and 150
@@ -304,6 +385,28 @@ class Game {
             }
         }
 
+        // Mines (Taposóakna)
+        for (let i = this.mines.length - 1; i >= 0; i--) {
+            const mine = this.mines[i];
+            mine.update(dt, this.terrain);
+
+            if (mine.isLanded) {
+                let triggered = false;
+                this.tanks.forEach(tank => {
+                    // Tank is approx 40 width. If distance from tank center X to mine X is < 20, and tank height is close.
+                    if (Math.abs(tank.x - mine.x) < 20 && Math.abs(tank.y - mine.y) < 20) {
+                        triggered = true;
+                    }
+                });
+
+                if (triggered) {
+                    // 40% scale for visual explosion crater, 50% flat damage (12.5 total) 
+                    this.createExplosion(mine.x, mine.y, false, 0.4, 0.5); 
+                    this.mines.splice(i, 1);
+                }
+            }
+        }
+
         // Explosions
         for (let i = this.explosions.length - 1; i >= 0; i--) {
             this.explosions[i].update(dt);
@@ -338,23 +441,34 @@ class Game {
         }
     }
 
-    createExplosion(x, y, isSmall = false) {
+    createExplosion(x, y, isSmall = false, radiusScale = 1.0, damageScale = null) {
         this.sounds.explosion();
-        const radius = isSmall ? 25 : 50;
+        const baseRadius = isSmall ? 25 : 50;
+        const radius = baseRadius * radiusScale;
         this.explosions.push(new Explosion(x, y, radius));
         this.terrain.destroyCircle(x, y, radius);
 
         // Damage calculations
+        const actualDamageScale = damageScale !== null ? damageScale : radiusScale;
+        const maxDamage = 25 * actualDamageScale;
+
         this.tanks.forEach(tank => {
             const dist = Math.hypot(tank.x - x, (tank.y - 10) - y); // approx tank center
 
-            if (dist < radius) {
-                // Maximum 25 damage on a direct hit
-                if (dist < radius * 0.5) {
-                    tank.takeDamage(25);
+            // Expand the hit radius for mines so it guarantees the triggering tank takes damage 
+            // even if its center is slightly outside the visual 40% crater.
+            const hitRadius = damageScale !== null ? Math.max(radius, 35) : radius;
+
+            if (dist < hitRadius) {
+                // If this is a mine explosion (damageScale is explicitly set), deal flat damage regardless of distance.
+                // Otherwise calculate falloff based on radius.
+                if (damageScale !== null) {
+                    tank.takeDamage(maxDamage);
+                } else if (dist < radius * 0.5) {
+                    tank.takeDamage(maxDamage);
                 } else {
                     // Scale damage: edge of explosion = minor damage, closer = more
-                    const damage = 25 * (1 - (dist / radius));
+                    const damage = maxDamage * (1 - (dist / radius));
                     tank.takeDamage(damage);
                 }
             }
@@ -435,18 +549,40 @@ class Game {
     }
 
     draw() {
-        // Draw sky gradient
+        // Draw sky gradient based on theme
         const skyGradient = this.ctx.createLinearGradient(0, 0, 0, this.height);
-        skyGradient.addColorStop(0, '#1E90FF'); // Darker sky blue at the top
-        skyGradient.addColorStop(1, '#FFFFFF'); // White at the bottom
-        this.ctx.fillStyle = skyGradient;
-        this.ctx.fillRect(0, 0, this.width, this.height);
+        
+        if (this.currentTheme === 'day') {
+            skyGradient.addColorStop(0, '#1E90FF'); // Darker sky blue at the top
+            skyGradient.addColorStop(1, '#FFFFFF'); // White at the bottom
+            this.ctx.fillStyle = skyGradient;
+            this.ctx.fillRect(0, 0, this.width, this.height);
+        } else if (this.currentTheme === 'desert') {
+            skyGradient.addColorStop(0, '#F4A460'); // Sandy brown at top
+            skyGradient.addColorStop(1, '#FFFACD'); // Lemon chiffon / white-yellow at bottom
+            this.ctx.fillStyle = skyGradient;
+            this.ctx.fillRect(0, 0, this.width, this.height);
+        } else if (this.currentTheme === 'night') {
+            skyGradient.addColorStop(0, '#000011'); // Very dark blue/black at top
+            skyGradient.addColorStop(1, '#1a1a2e'); // Dark blue at bottom
+            this.ctx.fillStyle = skyGradient;
+            this.ctx.fillRect(0, 0, this.width, this.height);
+
+            // Draw stars for night theme
+            this.stars.forEach(star => {
+                this.ctx.fillStyle = `rgba(255, 255, 255, ${star.alpha})`;
+                this.ctx.beginPath();
+                this.ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+                this.ctx.fill();
+            });
+        }
 
         // Draw Terrain
         this.terrain.draw(this.ctx);
 
         // Draw entities
         this.tanks.forEach(tank => tank.draw(this.ctx));
+        this.mines.forEach(mine => mine.draw(this.ctx));
         this.carePackages.forEach(cp => cp.draw(this.ctx));
         this.airplanes.forEach(plane => plane.draw(this.ctx));
         this.projectiles.forEach(p => p.draw(this.ctx));
@@ -458,9 +594,10 @@ class Game {
 // Terrain System
 // -------------------------------------------------------------
 class Terrain {
-    constructor(width, height) {
+    constructor(width, height, theme = 'day') {
         this.width = width;
         this.height = height;
+        this.theme = theme;
         this.heights = new Float32Array(width);
         this.generate();
     }
@@ -514,7 +651,20 @@ class Terrain {
     }
 
     draw(ctx) {
-        ctx.fillStyle = '#228B22'; // Forest Green
+        let fillColor, strokeColor;
+
+        if (this.theme === 'day') {
+            fillColor = '#228B22'; // Forest Green
+            strokeColor = '#186418';
+        } else if (this.theme === 'desert') {
+            fillColor = '#EEDD82'; // Light Goldenrod / Sand
+            strokeColor = '#DAA520'; // Goldenrod shadow
+        } else if (this.theme === 'night') {
+            fillColor = '#444444'; // Gray rocky ground
+            strokeColor = '#222222'; // Dark rocky shadow
+        }
+
+        ctx.fillStyle = fillColor; 
         ctx.beginPath();
         ctx.moveTo(0, this.height);
 
@@ -526,9 +676,9 @@ class Terrain {
         ctx.closePath();
         ctx.fill();
 
-        // Add a slight grass outline/shadow for depth
+        // Add a slight outline/shadow for depth
         ctx.lineWidth = 3;
-        ctx.strokeStyle = '#186418';
+        ctx.strokeStyle = strokeColor;
         ctx.beginPath();
         for (let x = 0; x < this.width; x++) {
             ctx.lineTo(x, this.heights[x]);
@@ -645,7 +795,13 @@ class Tank {
     }
 
     takeDamage(amount) {
-        if (this.invulnerableTime > 0) return; // Shield protects damage!
+        if (this.invulnerableTime > 0) {
+            // Shield mitigation: 50% at 15s max, scaling down to 0% at 0s
+            const maxInvuln = 15;
+            const mitigationPercent = 0.5 * (this.invulnerableTime / maxInvuln);
+            amount = amount * (1 - mitigationPercent);
+        }
+        
         this.health -= amount;
         if (this.health <= 0) {
             this.health = 0;
@@ -658,56 +814,72 @@ class Tank {
         ctx.save();
         ctx.translate(this.x, this.y);
 
-        // Body
-        ctx.fillStyle = this.color;
+        // Determine Sprite
+        const spriteKey = this.isPlayer ? 'gray_tank' : 'red_tank';
+        const sprite = AssetManager.sprites[spriteKey];
 
-        // Wheels/Treads
-        ctx.fillStyle = '#111';
-        ctx.beginPath();
-        ctx.roundRect(-this.width / 2, -5, this.width, 10, 5);
-        ctx.fill();
+        // We scale the tank down a bit (1.6x width instead of 2.1x)
+        const scaleFactor = 1.6;
+        const turretY = sprite ? -16 : -10;
 
-        // Hull
-        ctx.fillStyle = this.color;
-        ctx.beginPath();
-        // A simple trapezoid-like hull using bezier or simple arc
-        ctx.arc(0, -10, 15, Math.PI, 0);
-        ctx.fill();
+        // Determine barrel color: use dark gray/black so it's visible. Otherwise use tank color.
+        const barrelColor = this.isPlayer ? '#222222' : this.color;
 
-        // Shield visual
-        if (this.invulnerableTime > 0) {
-            ctx.beginPath();
-            ctx.arc(0, -10, 25, 0, Math.PI * 2);
-            ctx.strokeStyle = `rgba(0, 255, 255, ${0.5 + Math.sin(Date.now() / 100) * 0.5})`;
-            ctx.lineWidth = 2;
-            ctx.stroke();
-        }
-
-        // Turret Barrel
-        ctx.rotate(this.angle);
-        ctx.lineWidth = 6;
-        ctx.strokeStyle = '#555';
-        ctx.beginPath();
-        ctx.moveTo(0, 0); // attached around center-top (-10y) but translated
-        // Wait, let's fix the drawing context for the turret
-        ctx.restore();
-
-        // Draw turret barrel from the top center
+        // Draw Turret Barrel FIRST so it goes behind the hull sprite
         ctx.save();
-        ctx.translate(this.x, this.y - 10);
+        ctx.translate(0, turretY);
         ctx.rotate(this.angle);
         ctx.lineWidth = 6;
-        ctx.strokeStyle = this.machineGunTime > 0 ? '#ffcc00' : this.color;
+        ctx.strokeStyle = this.machineGunTime > 0 ? '#ffcc00' : barrelColor;
         ctx.beginPath();
         ctx.moveTo(0, 0);
         ctx.lineTo(this.barrelLength, 0);
         ctx.stroke();
+        ctx.restore();
 
-        // Turret joint
-        ctx.fillStyle = '#222';
-        ctx.beginPath();
-        ctx.arc(0, 0, 8, 0, Math.PI * 2);
-        ctx.fill();
+        // Shield visual - glowing aura around the tank sprite
+        if (this.invulnerableTime > 0) {
+            // Fade out the glow based on remaining time (assuming max 15s)
+            const maxInvuln = 15;
+            const intensity = Math.min(1, this.invulnerableTime / maxInvuln);
+            // Stronger purple/magenta color
+            ctx.shadowColor = `rgba(220, 50, 255, ${Math.min(1, intensity * 2.0)})`;
+            ctx.shadowBlur = 40 * intensity;     
+        } else {
+            ctx.shadowBlur = 0; // Reset shadow
+        }
+
+        // Draw Sprite Hull/Wheels if loaded, else fallback to procedural
+        if (sprite) {
+            // Keep original aspect ratio
+            const drawWidth = this.width * scaleFactor;
+            const aspect = sprite.height / sprite.width;
+            const drawHeight = drawWidth * aspect;
+            
+            // Draw centered horizontally, and adjust vertically so the padded image aligns with the ground (y=0)
+            ctx.drawImage(sprite, -drawWidth / 2, -drawHeight / 2 - 10, drawWidth, drawHeight);
+        } else {
+            // Turret joint
+            ctx.fillStyle = '#222';
+            ctx.beginPath();
+            ctx.arc(0, -10, 8, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Wheels/Treads
+            ctx.fillStyle = '#111';
+            ctx.beginPath();
+            ctx.roundRect(-this.width / 2, -5, this.width, 10, 5);
+            ctx.fill();
+
+            // Hull
+            ctx.fillStyle = this.color;
+            ctx.beginPath();
+            ctx.arc(0, -10, 15, Math.PI, 0);
+            ctx.fill();
+        }
+
+        // Reset shadow for subsequent draws
+        ctx.shadowBlur = 0;
 
         ctx.restore();
     }
@@ -961,8 +1133,9 @@ class Airplane {
         this.dropX = 50 + Math.random() * (gameWidth - 100); // Random X to drop payload
         this.hasDropped = false;
         const rand = Math.random();
-        if (rand < 0.33) this.payloadType = 'bomb';
-        else if (rand < 0.66) this.payloadType = 'package';
+        if (rand < 0.25) this.payloadType = 'bomb';
+        else if (rand < 0.5) this.payloadType = 'mine';
+        else if (rand < 0.75) this.payloadType = 'package';
         else this.payloadType = 'fuel';
 
         // Flight path variation
@@ -1013,11 +1186,14 @@ class Airplane {
             if ((this.direction === 1 && prevX <= this.dropX && this.x >= this.dropX) ||
                 (this.direction === -1 && prevX >= this.dropX && this.x <= this.dropX)) {
 
-                // Drop bomb
+                // Drop bomb/mine/package
                 this.hasDropped = true;
                 if (this.payloadType === 'bomb') {
                     game.sounds.bombDrop();
                     game.projectiles.push(new Projectile(this.x, this.y, 0, 0, this));
+                } else if (this.payloadType === 'mine') {
+                    game.sounds.bombDrop();
+                    game.mines.push(new Landmine(this.x, this.y));
                 } else {
                     game.sounds.playTone(400, 'sine', 0.5, 0.1, 300);
                     game.carePackages.push(new CarePackage(this.x, this.y, this.payloadType));
@@ -1039,39 +1215,57 @@ class Airplane {
             ctx.rotate((this.direction === 1 ? 1 : -1) * this.crashVy * 0.005);
         }
 
-        if (this.direction === -1) {
+        // Sprite airplane or helicopter based on payload
+        const isHelicopter = (this.payloadType === 'package' || this.payloadType === 'fuel');
+        const spriteKey = isHelicopter ? 'yellow_helicopter' : 'gray_airplane';
+        const sprite = AssetManager.sprites[spriteKey];
+
+        // The AI generated helicopter seems to natively face right, while the airplane natively faces left.
+        // We flip the airplane when flying right (1), and flip the helicopter when flying left (-1).
+        const needsFlip = isHelicopter ? (this.direction === -1) : (this.direction === 1);
+        if (needsFlip) {
             ctx.scale(-1, 1);
         }
 
-        // Simple airplane drawing
-        ctx.fillStyle = '#666';
+        if (sprite) {
+            // Keep original aspect ratio
+            const drawWidth = isHelicopter ? 60 : 70;
+            const aspect = sprite.height / sprite.width;
+            const drawHeight = drawWidth * aspect;
+            
+            // Drawn centered
+            ctx.drawImage(sprite, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+        } else {
+            // Fallback Simple airplane drawing
+            ctx.fillStyle = '#666';
 
-        // Fuselage
-        ctx.beginPath();
-        ctx.ellipse(0, 0, 25, 8, 0, 0, Math.PI * 2);
-        ctx.fill();
+            // Fuselage
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 25, 8, 0, 0, Math.PI * 2);
+            ctx.fill();
 
-        // Pilot window
-        ctx.fillStyle = '#add8e6';
-        ctx.beginPath();
-        ctx.arc(10, -2, 4, 0, Math.PI);
-        ctx.fill();
+            // Pilot window
+            ctx.fillStyle = '#add8e6';
+            ctx.beginPath();
+            ctx.arc(10, -2, 4, 0, Math.PI);
+            ctx.fill();
 
-        // Under-Wing
-        ctx.fillStyle = '#444';
-        ctx.beginPath();
-        ctx.moveTo(-5, 0);
-        ctx.lineTo(8, 0);
-        ctx.lineTo(-2, 12);
-        ctx.fill();
+            // Under-Wing
+            ctx.fillStyle = '#444';
+            ctx.beginPath();
+            ctx.moveTo(-5, 0);
+            ctx.lineTo(8, 0);
+            ctx.lineTo(-2, 12);
+            ctx.fill();
 
-        // Tail
-        ctx.fillStyle = '#666';
-        ctx.beginPath();
-        ctx.moveTo(-18, 0);
-        ctx.lineTo(-25, -12);
-        ctx.lineTo(-12, 0);
-        ctx.fill();
+            // Tail
+            ctx.fillStyle = '#666';
+            ctx.beginPath();
+            ctx.moveTo(-18, 0);
+            ctx.lineTo(-25, -12);
+            ctx.lineTo(-12, 0);
+            ctx.fill();
+        }
 
         // Payload attached (if not dropped)
         if (!this.hasDropped) {
@@ -1079,6 +1273,11 @@ class Airplane {
                 ctx.fillStyle = 'black';
                 ctx.beginPath();
                 ctx.ellipse(0, 8, 5, 3, 0, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (this.payloadType === 'mine') {
+                ctx.fillStyle = '#333';
+                ctx.beginPath();
+                ctx.arc(0, 8, 4, Math.PI, 0);
                 ctx.fill();
             } else if (this.payloadType === 'package') {
                 ctx.fillStyle = 'white';
@@ -1168,6 +1367,74 @@ class CarePackage {
     }
 }
 
+// -------------------------------------------------------------
+// Landmine
+// -------------------------------------------------------------
+class Landmine {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.vy = 0;
+        this.gravity = 500;
+        this.isLanded = false;
+        this.blinkTimer = 0;
+    }
+
+    update(dt, terrain) {
+        if (!this.isLanded) {
+            this.vy += this.gravity * dt;
+            this.y += this.vy * dt;
+            const groundY = terrain.getHeight(this.x);
+            if (this.y >= groundY) {
+                this.y = groundY;
+                this.vy = 0;
+                this.isLanded = true;
+            }
+        } else {
+            // Keep exactly on the ground even if terrain gets destroyed below it
+            const groundY = terrain.getHeight(this.x);
+            if (this.y < groundY) {
+                this.isLanded = false; // Fall again
+            } else {
+                this.y = groundY;
+            }
+            
+            this.blinkTimer += dt;
+        }
+    }
+
+    draw(ctx) {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        // Draw mine (half-circle on ground)
+        if (!this.isLanded) {
+            ctx.fillStyle = '#333';
+            ctx.beginPath();
+            ctx.arc(0, 0, 6, 0, Math.PI * 2);
+            ctx.fill();
+        } else {
+            ctx.fillStyle = '#333';
+            ctx.beginPath();
+            ctx.arc(0, 0, 6, Math.PI, 0); // Flat bottom when landed
+            ctx.fill();
+
+            // Blinking red light
+            if (Math.sin(this.blinkTimer * 10) > 0) {
+                ctx.fillStyle = 'red';
+                ctx.beginPath();
+                ctx.arc(0, -6, 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        ctx.restore();
+    }
+}
+
 // Bootstrap
 const game = new Game();
-window.onload = () => game.init();
+window.onload = async () => {
+    await AssetManager.loadAll();
+    game.init();
+};
