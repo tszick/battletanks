@@ -1,6 +1,6 @@
 # Battletanks
 
-![Splash Screen](splashscreen.png)
+![Gameplay Collage](assets/collage.jpg)
 
 A browser-based, real-time 2D tank artillery game with destructible terrain, wind physics, and crazy surprises falling from the sky!
 
